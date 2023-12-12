@@ -1,0 +1,71 @@
+---
+title: "Last 48 Hours of Seattle Weather"
+output: flexdashboard::flex_dashboard
+runtime: shiny
+---
+
+```{r global, include=FALSE}
+# load data in 'global' chunk so it can be shared by all users of the dashboard
+library(shiny)
+library(DT)
+library(dplyr)
+library(pins)
+source("async_weather_utils.R")
+```
+
+Column {.sidebar}
+-----------------------------------------------------------------------
+
+```{r}
+# Get the data, use a reactive 
+board <- getBoard()
+weather_data <- pin_reactive_read(board, name = "randre/Seattle_Weather_Data", interval = 1000)
+
+# Create a selector
+weather_vars <- c( "UV", "Humidity", "Temperature", "Pressure", "Precip")
+
+selectInput(inputId = "variable",
+            label = h4("Choose Variable"),
+            choices = weather_vars,
+            selected = "Temperature"
+)
+
+# Reactive data based on selector input
+variable_data <- reactive({
+  # Also cleans the variable names and subsets to the last 48 hours
+  getVariableData(cleanSeattleWeather(weather_data()), vars = input$variable)
+})
+
+```
+
+Column
+-----------------------------------------------------------------------
+
+### Specific Variable
+
+```{r}
+
+renderDT(rownames = FALSE,
+         server = FALSE,
+         options = list(bPaginate = FALSE, 
+                        dom = 't',
+                        ordering=F), 
+         { variable_data() %>% 
+             arrange(desc("Time")) %>%
+             mutate("Time" = as.character(`Time`))
+         })
+```
+
+### All Variables
+
+```{r}
+renderDT(rownames = FALSE,
+         server = FALSE,
+         options = list(bPaginate = FALSE, 
+                        dom = 't',
+                        ordering=F,
+                        scrollY = "350px"), 
+         {cleanSeattleWeather(weather_data()) %>% arrange(desc("Time")) %>%
+             mutate("Time" = as.character(`Time`))
+         })
+```
